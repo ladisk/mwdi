@@ -16,7 +16,7 @@ This code is based on the `MorletDamping`_ code developped by WANG Longqi.
 
 Created on Wed 09 Feb 2022 06:45:45 PM CET
 
-@author: TOMAC Ivan, SLAVIČ Janko
+@author: TOMAC Ivan, WANG Longqi, SLAVIČ Janko
 ..meta::
     :keywords: damping, morlet-wave, identification
 """
@@ -26,43 +26,48 @@ from scipy.optimize import minimize_scalar
 from scipy.special import erf
 
 class MorletWave(object):
-    _root_finding = "exact"
-
-    def __init__(self, sig, fs, k, n1=5, n2=10):
+    
+    def __init__(self, free_response, fs, k, n_1=5, n_2=10, root_finding = 'exact'):
         """
-        :param sig: analysed signal
+        Initiates the MorletWave object
+
+        :param free_response: analysed signal
         :param fs:  frequency of sampling
         :param k: number of oscillations for the damping identification
-        :param n1: time-spread parameter
-        :param n2: time-spread parameter
+        :param n_1: time-spread parameter
+        :param n_2: time-spread parameter
+        :param root_finding: finding method, use:
+            'close' form close form approximation
+            'exact' for root finding
         :return:
         """
-        self.sig = sig
+        self.free_response = free_response
         self.fs = float(fs)
         self.k = float(k)
-        self.n1 = float(n1)
-        self.n2 = float(n2)
+        self.n_1 = float(n_1)
+        self.n_2 = float(n_2)
+        self.root_finding = root_finding
 
     def identify_damping(self, w, verb=False):
         """
         Identify damping at circular frequency `w` (rad/s)
 
         """
-        M = self.morlet_integrate(w, self.n1) \
-          / self.morlet_integrate(w, self.n2)
-        if self._root_finding == "close":
-            dmp = self.n1 * self.n2 / 2 / np.pi \
-                / np.sqrt(self.k * self.k * (self.n2 * self.n2 - self.n1 * self.n1)) \
-                * np.sqrt(np.log(np.sqrt(self.n1 / self.n2) * M))
+        M = self.morlet_integrate(w, self.n_1) \
+          / self.morlet_integrate(w, self.n_2)
+        if self.root_finding == 'close':
+            dmp = self.n_1 * self.n_2 / 2 / np.pi \
+                / np.sqrt(self.k * self.k * (self.n_2 * self.n_2 - self.n_1 * self.n_1)) \
+                * np.sqrt(np.log(np.sqrt(self.n_1 / self.n_2) * M))
         else:
             self.x0 = (0, 0.01)
             # eq (19):
-            eqn = lambda x: -M + np.exp((2 * np.pi * self.k * x / (self.n1*self.n2))**2 \
-                        * (self.n2**2 - self.n1**2)) * np.sqrt(self.n2/self.n1) \
-                        * (erf(2 * np.pi * self.k * x / self.n1 + self.n1 / 4) \
-                            - erf(2 * np.pi * self.k * x / self.n1 - self.n1 / 4)) \
-                        / (erf(2 * np.pi * self.k * x / self.n2 + self.n2 / 4) \
-                            - erf(2 * np.pi * self.k * x / self.n2 - self.n2 / 4))
+            eqn = lambda x: -M + np.exp((2 * np.pi * self.k * x / (self.n_1*self.n_2))**2 \
+                        * (self.n_2**2 - self.n_1**2)) * np.sqrt(self.n_2/self.n_1) \
+                        * (erf(2 * np.pi * self.k * x / self.n_1 + self.n_1 / 4) \
+                            - erf(2 * np.pi * self.k * x / self.n_1 - self.n_1 / 4)) \
+                        / (erf(2 * np.pi * self.k * x / self.n_2 + self.n_2 / 4) \
+                            - erf(2 * np.pi * self.k * x / self.n_2 - self.n_2 / 4))
 
             try:
                 dmp, r = ridder(eqn, a=self.x0[0], b=self.x0[1], maxiter=20, \
@@ -77,21 +82,21 @@ class MorletWave(object):
             except ValueError:
                 dmp = np.NaN
 
-        if dmp <= self.n1**2/(8*np.pi*self.k):
+        if dmp <= self.n_1**2/(8*np.pi*self.k):
             return dmp
         else:
             if verb:
                 print('Damping theoretical limit not satisfied!')
             return np.NaN
 
-    def set_root_finding(self, method):
-        self._root_finding = method
+    def set_root_finding(self, root_finding):
+        """Change the root_finding method to: 'close' or 'exact'."""
+        self.root_finding = root_finding
 
     def morlet_integrate(self, w, n):
         """
-        Perform the numerical integration with a Morlet wave at circular freq `w` and time-spread
-        parameter `n`. Returns negated absolute value of the integral.
-
+        Integration with a Morlet wave at circular freq `w` and time-spread parameter `n`. 
+        
         :param n: time-spread parameter
         :param w: circular frequency (rad/s)
         :return:
@@ -99,7 +104,7 @@ class MorletWave(object):
         eta = 2 * np.sqrt(2) * np.pi * self.k / n # eq (14)
         s = eta / w
         T = 2 * self.k * np.pi / w # eq (12)
-        if T > (self.sig.size / self.fs):
+        if T > (self.free_response.size / self.fs):
             # print("err: ", w)
             raise ValueError("Signal is too short, %d points are needed" % np.around(T * self.fs))
             return np.nan
@@ -110,21 +115,26 @@ class MorletWave(object):
         kernel = np.exp(-t * t / s / s / 2) * np.exp(-1j * eta * t / s)
         kernel *= 1 / (np.pi ** 0.25 * np.sqrt(s))
 
-        return -np.abs(np.trapz(self.sig[:npoints] * kernel, dx=1/float(self.fs))) # eq (15)
+        return np.trapz(self.free_response[:npoints] * kernel, dx=1/float(self.fs)) # eq (15)
 
-    def identify_natural_frequency(self, w, n):
+    def find_natural_frequency(self, w, k, n):
         """
-        Numerically searches for the maximum of morlet-integral in the small range
-        arround circular frequency `w`. Search range is set to the frequency spread
-        of the morlet-wave function parameters `k` and `n2`.
+        Finds local maximum of the Morlet integral at `w`, `n` and `k`
 
         :param w: circular frequency (rad/s)
+        :param k: number of oscillations for the damping identification
+        :param n: time-spread parameter
+
         :return:
         """
-        delta = w * self.n2 / (2 * self.k)
+        delta = w * n / (2 * k)
         lwr = w - 0.5 * delta
         upr = lwr + delta
-        mnm = minimize_scalar(self.morlet_integrate, bounds=(lwr, upr), args=(n),\
+
+        def func(w):
+            return -np.abs(self.morlet_integrate(w=w, n=n))
+
+        mnm = minimize_scalar(func, bounds=(lwr, upr),\
                         method='bounded', options={'maxiter': 40, 'disp': 0})
         return mnm.x
 
