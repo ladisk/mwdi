@@ -27,7 +27,7 @@ from scipy.special import erf
 
 class MorletWave(object):
     
-    def __init__(self, free_response, fs, k, n_1=5, n_2=10, root_finding = 'exact'):
+    def __init__(self, free_response, fs, k=30, n_1=5, n_2=10, root_finding='exact'):
         """
         Initiates the MorletWave object
 
@@ -42,10 +42,10 @@ class MorletWave(object):
         :return:
         """
         self.free_response = free_response
-        self.fs = float(fs)
-        self.k = float(k)
-        self.n_1 = float(n_1)
-        self.n_2 = float(n_2)
+        self.fs = fs
+        self.k = k
+        self.n_1 = n_1
+        self.n_2 = n_2
         self.root_finding = root_finding
 
     def identify_damping(self, w, verb=False):
@@ -91,6 +91,7 @@ class MorletWave(object):
 
     def set_root_finding(self, root_finding):
         """Change the root_finding method to: 'close' or 'exact'."""
+        
         self.root_finding = root_finding
 
     def morlet_integrate(self, w, n):
