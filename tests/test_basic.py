@@ -6,6 +6,7 @@ sys.path.insert(0, my_path + '/../')
 import numpy as np
 import mwdi
 
+from scipy.special import erf
 
 def test_version():
     """ check if MWDI exposes a version attribute """
@@ -36,7 +37,22 @@ def test_sythetic(fs=1000, n=1000, fr=100, damping_ratio=0.01, phase=0.3, amplit
     np.testing.assert_equal(damping_ratio_ident, damping_ratio) 
     print(f'damping_ratio={damping_ratio}, damping_ratio_ident:{damping_ratio_ident}')
 
+def morlet_integral_analytical(k=10, n=10, w_n=100*np.pi, damping_ratio=0.01, amplitude=1, phase=0.3):
+    w_d = w_n * np.sqrt(1 - damping_ratio**2)
+    const = (np.pi/2)**(3/4) * amplitude * np.sqrt(k / (n * w_d))
+    error_function = erf((8*np.pi*damping_ratio*k*w_n + n**2*w_d)/(4*n*w_d)) - erf((8*np.pi*damping_ratio*k*w_n - n**2*w_d)/(4*n*w_d))
+    integral = np.exp(4*(np.pi*damping_ratio*k*w_n/(n*w_d))**2 - np.pi*damping_ratio*k*w_n/w_d + 1j*(np.pi*k - phase))
+    return const * integral * error_function
 
+def morlet_integral_analytical_paper(k=10, n=10, w=100*np.pi, damping_ratio=0.01, amplitude=1):
+#     const = amplitude * (2*np.pi**3)**0.25 * np.sqrt(k/(n*w)) # from papaer (17)
+#     const = amplitude * (0.5*np.pi)**0.75 * np.sqrt(k/(n*w)) # from paper (A.19)
+    const = amplitude * (np.pi/2)**(3/4) * np.sqrt(k/(n*w))
+    A = 2*np.pi*k*damping_ratio/n
+    B = 0.75 * n
+    error_function = erf(A + B) - erf(A - B)
+    integral = np.exp(np.pi*k*damping_ratio*(4*np.pi*k*damping_ratio - n**2)/n**2)
+    return const * integral * error_function
 
 
 if __name__ == "__main__":
