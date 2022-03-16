@@ -60,7 +60,7 @@ class MorletWave(object):
                 / np.sqrt(self.k * self.k * (self.n_2 * self.n_2 - self.n_1 * self.n_1)) \
                 * np.sqrt(np.log(np.sqrt(self.n_1 / self.n_2) * M))
         else:
-            self.x0 = (0, 0.01)
+            self.x0 = (0, 0.05)
             # eq (19):
             eqn = lambda x: -M + np.exp((2 * np.pi * self.k * x / (self.n_1*self.n_2))**2 \
                         * (self.n_2**2 - self.n_1**2)) * np.sqrt(self.n_2/self.n_1) \
