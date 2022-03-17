@@ -40,9 +40,7 @@ def test_sythetic(fs=1000, n=1000, fr=100, damping_ratio=0.01, phase=0.3, amplit
 def morlet_integral_analytical(k=10, n=10, w_n=100*np.pi, damping_ratio=0.01, amplitude=1, phase=0.3):
     w_d = w_n * np.sqrt(1 - damping_ratio**2)
     const = (np.pi/2)**(3/4) * amplitude * np.sqrt(k / (n * w_d))
-    A = 2*np.pi*k*damping_ratio*w_n/(n*w_d)
-    B = 0.25 * n
-    error_function = erf(A + B) - erf(A - B)
+    error_function = erf((8*np.pi*damping_ratio*k*w_n + n**2*w_d)/(4*n*w_d)) - erf((8*np.pi*damping_ratio*k*w_n - n**2*w_d)/(4*n*w_d))
     integral = np.exp(4*(np.pi*damping_ratio*k*w_n/(n*w_d))**2 - np.pi*damping_ratio*k*w_n/w_d + 1j*(np.pi*k - phase))
     return const * integral * error_function
 
