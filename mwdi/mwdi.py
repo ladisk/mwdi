@@ -20,6 +20,7 @@ Created on Wed 09 Feb 2022 06:45:45 PM CET
 ..meta::
     :keywords: damping, morlet-wave, identification
 """
+from warnings import WarningMessage
 import numpy as np
 from scipy.optimize import ridder
 from scipy.optimize import minimize_scalar
@@ -107,20 +108,21 @@ class MorletWave(object):
         T = 2 * self.k * np.pi / w # eq (12)
         if T > (self.free_response.size / self.fs):
             # print("err: ", w)
-            raise ValueError("Signal is too short, %d points are needed" % np.around(T * self.fs))
+            raise ValueError("Signal is too short, %d points are needed." % int(T * self.fs) + 1)
             return np.nan
-        npoints = int(np.around(T * self.fs))
+        npoints = int(T * self.fs) + 1
         t = np.arange(npoints) / self.fs
         # From now on `t` is `t - T/2`
-        t -= T/2
-        kernel = np.exp(-t * t / s / s / 2) * np.exp(-1j * eta * t / s)
-        kernel *= 1 / (np.pi ** 0.25 * np.sqrt(s))
+        t -= 0.5 * T
+        t /= s
+        kernel = np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 + 1j*eta*t)
 
-        return np.trapz(self.free_response[:npoints] * kernel, dx=1/float(self.fs)) # eq (15)
+        return np.trapz(self.free_response[:npoints] * kernel, dx=1/self.fs) # eq (15)
 
-    def find_natural_frequency(self, w, k, n):
+
+    def find_natural_frequency(self, w, n):
         """
-        Finds local maximum of the Morlet integral at `w`, `n` and `k`
+        Finds local maximum of the Morlet integral at `w` and `n`
 
         :param w: circular frequency (rad/s)
         :param k: number of oscillations for the damping identification
@@ -128,14 +130,14 @@ class MorletWave(object):
 
         :return:
         """
-        delta = w * n / (2 * k)
+        delta = w * n / (2 * self.k)
         lwr = w - 0.5 * delta
         upr = lwr + delta
 
-        def func(w):
+        def func(w, n):
             return -np.abs(self.morlet_integrate(w=w, n=n))
 
-        mnm = minimize_scalar(func, bounds=(lwr, upr),\
+        mnm = minimize_scalar(func, bounds=(lwr, upr), args=(n), \
                         method='bounded', options={'maxiter': 40, 'disp': 0})
         return mnm.x
 
