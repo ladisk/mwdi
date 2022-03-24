@@ -62,16 +62,24 @@ def test_sythetic(fs=5000, n=5000, fr=100, damping_ratio=0.01, phase=0.3, amplit
     w_n = 2*np.pi*fr
     w_d = w_n * np.sqrt(1 - damping_ratio**2)
 
+    ###### Test Morlet Wave integral ######
     mw_integral_num = np.abs(identifier.morlet_integrate(w=w_d, n=n_1))
-    mw_integral_anl, _ = morlet_integral_analytical(k=k, n=n_1, w_n=w_n, damping_ratio=damping_ratio, phase=phase, amplitude=amplitude)
-    np.testing.assert_allclose(mw_integral_num, mw_integral_anl, 1e-3)
-    print(f'\nTest Morlet integral:\n\tanalytical={mw_integral_anl}, numerical={mw_integral_num}')
+    mw_integral_anl, _ = morlet_integral_analytical(k=k, n=n_1, w_n=w_n, 
+                                                    damping_ratio=damping_ratio,
+                                                    phase=phase, amplitude=amplitude)
 
+    np.testing.assert_allclose(mw_integral_num, mw_integral_anl, 1e-3)
+    print(f'\nTest Morlet integral:\n\tanalytical={mw_integral_anl},'
+          f' numerical={mw_integral_num}')
+
+    ###### Test Identification of natural frequency ######
     w_ident = identifier.find_natural_frequency(w=w_d, n=n_1)
     corr = identifier.frequency_correction(n=n_1, d=damping_ratio)
+
     np.testing.assert_allclose(w_ident/corr, w_d, 0.5e-3)
     print(f'\nTest find frequency:\n\tw={w_d}, w_corr={w_ident/corr}, w_ident={w_ident}')
 
+    ###### Test identification of damping ratio ######
     # damping_ratio_ident = identifier.identify_damping(w=w)
     # np.testing.assert_allclose(damping_ratio_ident, damping_ratio) 
     # print(f'damping_ratio={damping_ratio}, damping_ratio_ident:{damping_ratio_ident}')
