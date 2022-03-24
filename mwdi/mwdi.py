@@ -6,7 +6,8 @@ method using Morlet wave, based on [1]_:
 
 .. [1] J. Slavič, M. Boltežar, Damping identification with the Morlet-
 wave, Mechanical Systems and Signal Processing. 25 (2011) 1632–1645.
-doi:10.1016/j.ymssp.2011.01.008.
+_doi: 10.1016/j.ymssp.2011.01.008.
+.. _doi: https://doi.org/10.1016/j.ymssp.2011.01.008
 
 Check web page of EU project `NOSTRADAMUS`_ for more info.
 .. _NOSTRADAMUS: http://ladisk.si/?what=incfl&flnm=nostradamus.php
@@ -140,6 +141,27 @@ class MorletWave(object):
         mnm = minimize_scalar(func, bounds=(lwr, upr), args=(n), \
                         method='bounded', options={'maxiter': 40, 'disp': 0})
         return mnm.x
+    
+    def frequency_correction(self, n, d):
+        """
+        Calculates frequency correction [1]_ caused by the wavelet transform `n`, `k` and
+        the damping `d`. Identified frequency needs to be corrected using the returned
+        factor in following way: `omega = omega_identified * correction**-1`
+
+        .. [1] J. Slavič, I. Simonovski, M. Boltežar, Damping identification using a 
+        continuous wavelet transform: application to real data, Journal of Sound
+        and Vibration, 262 (2003) 291-307, _doi: 10.1016/S0022-460X(02)01032-5.
+        .. _doi: https://doi.org/10.1016/S0022-460X(02)01032-5.
+
+        :param n: time-spread parameter
+        :param d: damping ratio
+        """
+        correction = (np.pi*self.k/n**2) * (-8*self.k*np.pi + (n**2 * d)/np.sqrt(1 - d**2) \
+                        + np.sqrt(((-n**4*d**2 \
+                            + 64*self.k**2*np.pi**2 * (-1 + d**2) 
+                            + 16*n**2 * (-1 + 2*d**2 + self.k*np.pi*d*np.sqrt(1 - d**2))) 
+                            / (-1 + d**2))))
+        return correction
 
 if __name__ == "__main__":
     fs1 = 100
