@@ -27,7 +27,7 @@ def get_free_response(fs=5000, n=5000, fr=100, damping_ratio=0.01, phase=0.3, am
     time = np.arange(0, n) / fs
     w_n = 2 * np.pi * fr
     w_d = w_n * np.sqrt(1 - damping_ratio**2)
-    free_response = amplitude * np.cos(w_d * time + phase) * np.exp(-damping_ratio * w_n * time)
+    free_response = amplitude * np.cos(w_d * time - phase) * np.exp(-damping_ratio * w_n * time)
     return free_response
 
 def morlet_integral_analytical(k, n, w_n, damping_ratio, phase, amplitude):
@@ -57,7 +57,7 @@ def test_sythetic(fs=5000, n=5000, fr=100, damping_ratio=0.01, phase=0.3, amplit
                                phase=phase, amplitude=amplitude)
     n_1 = 5
     n_2 = 10
-    k = 20
+    k = 40
     identifier = mwdi.MorletWave(free_response=signal, fs=fs, k=k, n_1=n_1, n_2=n_2)
     w_n = 2*np.pi*fr
     w_d = w_n * np.sqrt(1 - damping_ratio**2)
@@ -68,21 +68,25 @@ def test_sythetic(fs=5000, n=5000, fr=100, damping_ratio=0.01, phase=0.3, amplit
                                                     damping_ratio=damping_ratio,
                                                     phase=phase, amplitude=amplitude)
 
-    np.testing.assert_allclose(mw_integral_num, mw_integral_anl, 1e-3)
+    np.testing.assert_allclose(mw_integral_num, mw_integral_anl, 9.6e-4)
     print(f'\nTest Morlet integral:\n\tanalytical={mw_integral_anl},'
           f' numerical={mw_integral_num}')
 
     ###### Test Identification of natural frequency ######
-    w_ident = identifier.find_natural_frequency(w=w_d, n=n_1)
-    corr = identifier.frequency_correction(n=n_1, d=damping_ratio)
+    w_ident1 = identifier.find_natural_frequency(w=w_d, n=n_1)
+    w_ident2 = identifier.find_natural_frequency(w=w_d, n=n_2)
+    corr1 = identifier.frequency_correction(n=n_1, d=damping_ratio)
+    corr2 = identifier.frequency_correction(n=n_2, d=damping_ratio)
 
-    np.testing.assert_allclose(w_ident/corr, w_d, 0.5e-3)
-    print(f'\nTest find frequency:\n\tw={w_d}, w_corr={w_ident/corr}, w_ident={w_ident}')
+    np.testing.assert_allclose(w_ident1*corr1, w_d, 1.7e-4)
+    print(f'\nTest find frequency for n_1:\n\tw={w_d}, w_corr={w_ident1*corr1}, w_ident={w_ident1}')
+    np.testing.assert_allclose(w_ident2*corr2, w_d, 1e-5)
+    print(f'\nTest find frequency for n_2:\n\tw={w_d}, w_corr={w_ident2*corr2}, w_ident={w_ident2}')
 
-    ###### Test identification of damping ratio ######
-    # damping_ratio_ident = identifier.identify_damping(w=w)
-    # np.testing.assert_allclose(damping_ratio_ident, damping_ratio) 
-    # print(f'damping_ratio={damping_ratio}, damping_ratio_ident:{damping_ratio_ident}')
+    #### Test identification of damping ratio ######
+    damping_ratio_ident = identifier.identify_damping(w=w_ident1*corr1)
+    np.testing.assert_allclose(damping_ratio_ident, damping_ratio, 4.6e-3) 
+    print(f'\nTest damping ratio:\n\tdamping_ratio={damping_ratio}, damping_ratio_ident:{damping_ratio_ident}')
 
 
 

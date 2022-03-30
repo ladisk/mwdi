@@ -21,7 +21,6 @@ Created on Wed 09 Feb 2022 06:45:45 PM CET
 ..meta::
     :keywords: damping, morlet-wave, identification
 """
-from warnings import WarningMessage
 import numpy as np
 from scipy.optimize import ridder
 from scipy.optimize import minimize_scalar
@@ -36,8 +35,8 @@ class MorletWave(object):
         :param free_response: analysed signal
         :param fs:  frequency of sampling
         :param k: number of oscillations for the damping identification
-        :param n_1: time-spread parameter
-        :param n_2: time-spread parameter
+        :param n_1: time-spread parameter of nominators wavelet coeff.
+        :param n_2: time-spread parameter of denominators wavelet coeff.
         :param root_finding: finding method, use:
             'close' form close form approximation
             'exact' for root finding
@@ -55,46 +54,35 @@ class MorletWave(object):
         Identify damping at circular frequency `w` (rad/s)
 
         """
-        M = self.morlet_integrate(w, self.n_1) \
-          / self.morlet_integrate(w, self.n_2)
+        M = np.abs(self.morlet_integrate(w, self.n_1)) \
+          / np.abs(self.morlet_integrate(w, self.n_2))
         if self.root_finding == 'close':
             dmp = self.n_1 * self.n_2 / 2 / np.pi \
                 / np.sqrt(self.k * self.k * (self.n_2 * self.n_2 - self.n_1 * self.n_1)) \
                 * np.sqrt(np.log(np.sqrt(self.n_1 / self.n_2) * M))
         else:
-            self.x0 = (0, 0.05)
-            # eq (19):
-            eqn = lambda x: -M + np.exp((2 * np.pi * self.k * x / (self.n_1*self.n_2))**2 \
-                        * (self.n_2**2 - self.n_1**2)) * np.sqrt(self.n_2/self.n_1) \
-                        * (erf(2 * np.pi * self.k * x / self.n_1 + self.n_1 / 4) \
-                            - erf(2 * np.pi * self.k * x / self.n_1 - self.n_1 / 4)) \
-                        / (erf(2 * np.pi * self.k * x / self.n_2 + self.n_2 / 4) \
-                            - erf(2 * np.pi * self.k * x / self.n_2 - self.n_2 / 4))
-
+            x0 = (0, 0.02)
             try:
-                dmp, r = ridder(eqn, a=self.x0[0], b=self.x0[1], maxiter=20, \
-                                full_output=True, disp=False)
+                dmp, r = ridder(self.exact_mwdi, a=x0[0], b=x0[1], args=(M), \
+                                     maxiter=20, full_output=True, disp=False)
                 if not r.converged:
-                    dmp = np.NaN
                     if verb:
                         print('maximum iterations limit reached!')
+                    return np.NaN
             except RuntimeWarning:
                 if verb:
                     print('Ridder raised Warning.')
             except ValueError:
-                dmp = np.NaN
+                if verb:
+                    print('Ridder raised ValueError.')
+                return np.NaN
 
         if dmp <= self.n_1**2/(8*np.pi*self.k):
             return dmp
         else:
             if verb:
-                print('Damping theoretical limit not satisfied!')
+                print('Theoretical constraint not satisfied!', dmp)
             return np.NaN
-
-    def set_root_finding(self, root_finding):
-        """Change the root_finding method to: 'close' or 'exact'."""
-        
-        self.root_finding = root_finding
 
     def morlet_integrate(self, w, n):
         """
@@ -116,7 +104,7 @@ class MorletWave(object):
         # From now on `t` is `t - T/2`
         t -= 0.5 * T
         t /= s
-        kernel = np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 + 1j*eta*t)
+        kernel = np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 - 1j*eta*t) # conjugated MW
 
         return np.trapz(self.free_response[:npoints] * kernel, dx=1/self.fs) # eq (15)
 
@@ -146,7 +134,7 @@ class MorletWave(object):
         """
         Calculates frequency correction [1]_ caused by the wavelet transform `n`, `k` and
         the damping `d`. Identified frequency needs to be corrected using the returned
-        factor in following way: `omega = omega_identified * correction**-1`
+        factor in following way: `omega = omega_identified * correction`
 
         .. [1] J. Slavič, I. Simonovski, M. Boltežar, Damping identification using a 
         continuous wavelet transform: application to real data, Journal of Sound
@@ -157,11 +145,35 @@ class MorletWave(object):
         :param d: damping ratio
         """
         correction = (np.pi*self.k/n**2) * (-8*self.k*np.pi + (n**2 * d)/np.sqrt(1 - d**2) \
-                        + np.sqrt(((-n**4*d**2 \
-                            + 64*self.k**2*np.pi**2 * (-1 + d**2) 
-                            + 16*n**2 * (-1 + 2*d**2 + self.k*np.pi*d*np.sqrt(1 - d**2))) 
-                            / (-1 + d**2))))
-        return correction
+                        + np.sqrt((-n**4*d**2 \
+                            + 64*self.k**2*np.pi**2 * (-1 + d**2) \
+                            + 16*n**2 * (-1 + 2*d**2 + self.k*np.pi*d*np.sqrt(1 - d**2))) \
+                            / (-1 + d**2)))
+        return correction**-1
+
+    def exact_mwdi(self, d, M_numerical=0):
+        """
+        Calculates the difference between analitically expressed ratio of absolute value
+        of two wavelet coefficients expressed with: `d`, `k`, `n_1`, `n_2` and
+        numerically calculated ratio `M_numerical`, which is obtained by integrating
+        a free response of mechanical system with the Morlet wave function using the
+        same parameters: `k`, `n_1` and `n_2` as used for calculation of analytical
+        ratio.
+
+        :param d: damping ratio
+        :param M_numerical: numerical ratio of abs valued of two wavelet coefficients
+        :return: M_analytical - M_numerical
+        """
+        const = 2 * self.k * np.pi * d / np.sqrt(1 - d**2)
+        n = np.array([self.n_1, self.n_2])
+        g_1 = 0.25 * n
+        g_2 = const / n
+        err = erf(g_1[0] - g_2[0]) + erf(g_1[0] + g_2[0])
+        err /=erf(g_1[1] - g_2[1]) + erf(g_1[1] + g_2[1])
+        g_2 /= n
+        M_analytical = np.sqrt(self.n_2 / self.n_1) \
+                     * np.exp(g_2[0] * g_2[1] * (self.n_2**2 - self.n_1**2)) * err
+        return M_analytical - M_numerical
 
 if __name__ == "__main__":
     fs1 = 100
@@ -171,8 +183,7 @@ if __name__ == "__main__":
     k1 = 40
 
 #    Close form
-    identifier = MorletWave(sig1, fs1, k1, 10, 20)
-    identifier.set_root_finding(method="close")
+    identifier = MorletWave(sig1, fs1, k1, 10, 20, 'close')
     print(identifier.identify_damping(w1))
 #    Exact
     identifier = MorletWave(sig1, fs1, k1, 5, 10)
