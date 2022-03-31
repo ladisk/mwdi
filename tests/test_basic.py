@@ -84,10 +84,9 @@ def test_sythetic(fs=5000, n=5000, fr=100, damping_ratio=0.01, phase=0.3, amplit
     print(f'\nTest find frequency for n_2:\n\tw={w_d}, w_corr={w_ident2*corr2}, w_ident={w_ident2}')
 
     #### Test identification of damping ratio ######
-    damping_ratio_ident = identifier.identify_damping(w=w_ident1*corr1)
+    damping_ratio_ident = identifier.identify_damping(w=w_ident1)
     np.testing.assert_allclose(damping_ratio_ident, damping_ratio, 4.6e-3) 
     print(f'\nTest damping ratio:\n\tdamping_ratio={damping_ratio}, damping_ratio_ident:{damping_ratio_ident}')
-
 
 
 if __name__ == "__main__":
