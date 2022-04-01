@@ -130,3 +130,5 @@ dmypy.json
 
 distribution.bat
 .vscode/
+notebooks/
+.gitignore
