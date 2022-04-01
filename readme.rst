@@ -12,17 +12,17 @@ This code is based on the `MorletDamping`_ code developped by WANG Longqi.
 
 Usage
 -----
-The package uses the Morlet wave method to identify structural damping from a single free response (impulse response function) of the mechanical system. The method requires three parameters, to set `n_1`, `n_2` and `k`, that are set to default values. For more details how to select parameters check [1]_ and [2]_.
+The package uses the Morlet wave method to identify structural damping from a single free response (impulse response function) of the mechanical system. The method requires three parameters, to set :code:`n_1`, :code:`n_2` and :code:`k`, that are set to default values. For more details how to select parameters check [1]_ and [2]_.
 
-`identifier = mw.MorletDamping(free_response=response, fs=sampling_frequency, k=30, n_1=5, n_2=10)`
+:code:`identifier = mw.MorletDamping(free_response=response, fs=sampling_frequency, k=30, n_1=5, n_2=10)`
 
 To identify damping a natural circular frequency must be supplied:
 
-`identifier.identify_damping(w=natural_frequency)`
+:code:`identifier.identify_damping(w=natural_frequency)`
 
 The package has a method to identify natural frequency. User must provide estimated natural frequency.
 
-`identified_nat_freq = identifier.find_natural_frequency(w=estimated_nat_freq, n=5)`
+:code:`identified_nat_freq = identifier.find_natural_frequency(w=estimated_nat_freq, n=5)`
 
 Simple example
 ---------------
