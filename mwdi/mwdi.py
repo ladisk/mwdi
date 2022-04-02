@@ -49,11 +49,18 @@ class MorletWave(object):
         self.n_2 = n_2
         self.root_finding = root_finding
 
-    def identify_damping(self, w, verb=False):
+    def identify_damping(self, w, find_exact_freq=True, verb=False):
         """
         Identify damping at circular frequency `w` (rad/s)
 
+        :param w: circular frequency at which to identify damping
+        :param find_exact_freq:  if True, parameter `w` is used as the initial circular
+                frequency to find the local extreme
+        :return:
         """
+        if find_exact_freq:
+            w = self.find_natural_frequency(w=w, n=self.n_1)
+
         M = np.abs(self.morlet_integrate(w, self.n_1)) \
           / np.abs(self.morlet_integrate(w, self.n_2))
         if self.root_finding == 'close':

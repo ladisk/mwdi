@@ -1,28 +1,10 @@
-MWDI - Morlet-Wave damping identification 
+MWDI - Morlet-Wave Damping Identification 
 ------------------------------------------
-This is a Python implementation of damping identification method using Morlet wave, based on [1]_.
+This is the Python implementation of the Morlet-Wave damping identification method, see [1]_ and [2]_ for details.
 
-Check web page of EU project `NOSTRADAMUS`_ for more info.
+This package is based on the `MorletDamping`_ code developed by WANG Longqi and was created within the 
+MSCA IF project `NOSTRADAMUS`_.
 
-.. _NOSTRADAMUS: http://ladisk.si/?what=incfl&flnm=nostradamus.php
-
-This code is based on the `MorletDamping`_ code developped by WANG Longqi.
-
-.. _MorletDamping: https://github.com/wanglongqi/MorletDamping
-
-Usage
------
-The package uses the Morlet wave method to identify structural damping from a single free response (impulse response function) of the mechanical system. The method requires three parameters, to set :code:`n_1`, :code:`n_2` and :code:`k`, that are set to default values. For more details how to select parameters check [1]_ and [2]_.
-
-:code:`identifier = mw.MorletDamping(free_response=response, fs=sampling_frequency, k=30, n_1=5, n_2=10)`
-
-To identify damping a natural circular frequency must be supplied:
-
-:code:`identifier.identify_damping(w=natural_frequency)`
-
-The package has a method to identify natural frequency. User must provide estimated natural frequency.
-
-:code:`identified_nat_freq = identifier.find_natural_frequency(w=estimated_nat_freq, n=5)`
 
 Simple example
 ---------------
@@ -49,17 +31,14 @@ A simple example on how to generate random signals on PSD basis:
    # set MWDI object identifier
    identifier = mw.MorletWave(free_response=response, fs=fs, k=40)
 
-   # identify natural frequency
-   w_ident = identifier.find_natural_frequency(w=99*2*np.pi, n=5)
-   print(w_ident / 2 / np.pi)
-
    # identify damping
-   dmp = identifier.identify_damping(w_ident)
+   dmp = identifier.identify_damping(w=w_n)
    print(dmp)
 
 References
 ----------
-
+.. _NOSTRADAMUS: http://ladisk.si/?what=incfl&flnm=nostradamus.php
+.. _MorletDamping: https://github.com/wanglongqi/MorletDamping
 .. [1] J. Slavič, M. Boltežar, Damping identification with the Morlet-wave, Mechanical Systems and Signal Processing, 25 (2011) 1632–1645, doi: `10.1016/j.ymssp.2011.01.008`_.
 
 .. _10.1016/j.ymssp.2011.01.008: https://doi.org/10.1016/j.ymssp.2011.01.008
@@ -70,11 +49,11 @@ References
 
 .. .. |DOI| |Build Status| |Docs Status|
 
-.. .. |Docs Status| image:: https://readthedocs.org/projects/pyexsi/badge/
-..    :target: https://pyexsi.readthedocs.io
+.. .. |Docs Status| image:: https://readthedocs.org/projects/mwdi/badge/
+..    :target: https://mwdi.readthedocs.io
    
-.. .. |Build Status| image:: https://travis-ci.com/ladisk/pyExSi.svg?branch=main
-..    :target: https://travis-ci.com/ladisk/pyExSi
+.. .. |Build Status| image:: https://travis-ci.com/ladisk/mwdi.svg?branch=main
+..    :target: https://travis-ci.com/ladisk/mwdi
    
 .. .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4431844.svg
 ..    :target: https://doi.org/10.5281/zenodo.4431844
