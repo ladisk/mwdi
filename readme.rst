@@ -47,13 +47,8 @@ References
 
 .. _10.1016/j.ymssp.2021.108485: https://doi.org/10.1016/j.ymssp.2021.108485
 
-.. .. |DOI| |Build Status| |Docs Status|
+.. .. |Build Status|
 
-.. .. |Docs Status| image:: https://readthedocs.org/projects/mwdi/badge/
-..    :target: https://mwdi.readthedocs.io
-   
 .. .. |Build Status| image:: https://travis-ci.com/ladisk/mwdi.svg?branch=main
 ..    :target: https://travis-ci.com/ladisk/mwdi
    
-.. .. |DOI| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.4431844.svg
-..    :target: https://doi.org/10.5281/zenodo.4431844
