@@ -86,9 +86,7 @@ class MorletWave(object):
         s = eta / w
         T = 2 * k * np.pi / w # eq (12)
         if T > (self.free_response.size / self.fs):
-            # print("err: ", w)
             raise ValueError("Signal is too short, %d points are needed." % int(T * self.fs) + 1)
-            return np.nan
         npoints = int(T * self.fs) + 1
         t = np.arange(npoints) / self.fs
         # From now on `t` is `t - T/2`
@@ -111,10 +109,10 @@ class MorletWave(object):
         lwr = w - 0.5 * delta
         upr = lwr + delta
 
-        def func(w, n):
+        def func(w, n, k):
             return -np.abs(self.morlet_integrate(w=w, n=n, k=k))
 
-        mnm = minimize_scalar(func, bounds=(lwr, upr), args=(n), \
+        mnm = minimize_scalar(func, bounds=(lwr, upr), args=(n, k), \
                         method='bounded', options={'maxiter': 40, 'disp': 0})
         return mnm.x
     
@@ -189,12 +187,12 @@ class MorletWave(object):
             damping_ratio_init = self.closed_form_mwdi(M_numerical=M_numerical, n_1=n_1, n_2=n_2, k=k)
         
         if root_finding=='Newton':
-            damping_ratio, r = newton(self.exact_mwdi_goal_function, x0=damping_ratio_init, args=(M_numerical,n_1,n_2,k),\
-                                    full_output=True)
+            damping_ratio, r = newton(self.exact_mwdi_goal_function, x0=damping_ratio_init, \
+                                        args=(M_numerical, n_1, n_2, k), full_output=True)
         elif root_finding=='Ridder':
             x0 = (0, 10*damping_ratio_init)
-            damping_ratio, r = ridder(self.exact_mwdi_goal_function, a=x0[0], b=x0[1], args=(M_numerical,n_1,n_2,k), \
-                                    full_output=True, disp=False)
+            damping_ratio, r = ridder(self.exact_mwdi_goal_function, a=x0[0], b=x0[1], \
+                                        args=(M_numerical, n_1, n_2, k), full_output=True, disp=False)
             raise Exception('Maximum iterations limit reached!')
 
         return damping_ratio
