@@ -23,75 +23,58 @@ Created on Wed 09 Feb 2022 06:45:45 PM CET
 """
 import numpy as np
 from scipy.optimize import ridder
+from scipy.optimize import newton
 from scipy.optimize import minimize_scalar
 from scipy.special import erf
 
 class MorletWave(object):
     
-    def __init__(self, free_response, fs, k=30, n_1=5, n_2=10, root_finding='exact'):
+    def __init__(self, free_response, fs, k=30, n_1=5, n_2=10):
         """
         Initiates the MorletWave object
 
         :param free_response: analysed signal
         :param fs:  frequency of sampling
-        :param k: number of oscillations for the damping identification
-        :param n_1: time-spread parameter of nominators wavelet coeff.
-        :param n_2: time-spread parameter of denominators wavelet coeff.
-        :param root_finding: finding method, use:
-            'close' form close form approximation
-            'exact' for root finding
         :return:
         """
         self.free_response = free_response
         self.fs = fs
-        self.k = k
-        self.n_1 = n_1
-        self.n_2 = n_2
-        self.root_finding = root_finding
 
-    def identify_damping(self, w, find_exact_freq=True, verb=False):
+    def identify_damping(self, w, n_1=7, n_2=12, k=30, find_exact_freq=True,
+                         root_finding='closed-form', damping_ratio_init='auto'):
         """
         Identify damping at circular frequency `w` (rad/s)
 
         :param w: circular frequency at which to identify damping
         :param find_exact_freq:  if True, parameter `w` is used as the initial circular
                 frequency to find the local extreme
-        :return:
+        :param root_finding: root finding method: 
+                `closed-form` - for closed form solution
+                `Newton` - for the exact-form solution which requires root finding using Newton method
+                `Ridder` - for the exact-form solution which requires root finding using Ridder method
+        :param damping_ratio_init: initial guess for damping ratio, if `auto` then the closed-form 
+                                   solution will be used for initial guess
+        :return: damping_ratio
         """
+        if n_1>n_2:
+            raise Exception('`n_1` should be smaller than `n_2`.')
         if find_exact_freq:
-            w = self.find_natural_frequency(w=w, n=self.n_1)
+            w = self.find_natural_frequency(w=w, n=n_1, k=k)
 
-        M = np.abs(self.morlet_integrate(w, self.n_1)) \
-          / np.abs(self.morlet_integrate(w, self.n_2))
-        if self.root_finding == 'close':
-            dmp = self.n_1 * self.n_2 / 2 / np.pi \
-                / np.sqrt(self.k * self.k * (self.n_2 * self.n_2 - self.n_1 * self.n_1)) \
-                * np.sqrt(np.log(np.sqrt(self.n_1 / self.n_2) * M))
+        M = np.abs(self.morlet_integrate(w, n=n_1, k=k)) \
+          / np.abs(self.morlet_integrate(w, n=n_2, k=k))
+        if root_finding == 'closed-form':
+            damping_ratio = self.closed_form_mwdi(M_numerical=M, n_1=n_1, n_2=n_2, k=k)
         else:
-            x0 = (0, 0.02)
-            try:
-                dmp, r = ridder(self.exact_mwdi, a=x0[0], b=x0[1], args=(M), \
-                                     maxiter=20, full_output=True, disp=False)
-                if not r.converged:
-                    if verb:
-                        print('maximum iterations limit reached!')
-                    return np.NaN
-            except RuntimeWarning:
-                if verb:
-                    print('Ridder raised Warning.')
-            except ValueError:
-                if verb:
-                    print('Ridder raised ValueError.')
-                return np.NaN
+            damping_ratio = self.exact_mwdi(M_numerical=M, n_1=n_1, n_2=n_2, k=k, 
+                            root_finding=root_finding, damping_ratio_init=damping_ratio_init)
 
-        if dmp <= self.n_1**2/(8*np.pi*self.k):
-            return dmp
+        if k <= n_1**2/(8*np.pi*damping_ratio):
+            return damping_ratio
         else:
-            if verb:
-                print('Theoretical constraint not satisfied!', dmp)
-            return np.NaN
+            raise Exception(f'Parameter `k` should be below {n_1**2/(8*np.pi*damping_ratio)}, see Eq. (21) in [1].')
 
-    def morlet_integrate(self, w, n):
+    def morlet_integrate(self, w, n, k):
         """
         Integration with a Morlet wave at circular freq `w` and time-spread parameter `n`. 
         
@@ -99,9 +82,9 @@ class MorletWave(object):
         :param w: circular frequency (rad/s)
         :return:
         """
-        eta = 2 * np.sqrt(2) * np.pi * self.k / n # eq (14)
+        eta = 2 * np.sqrt(2) * np.pi * k / n # eq (14)
         s = eta / w
-        T = 2 * self.k * np.pi / w # eq (12)
+        T = 2 * k * np.pi / w # eq (12)
         if T > (self.free_response.size / self.fs):
             # print("err: ", w)
             raise ValueError("Signal is too short, %d points are needed." % int(T * self.fs) + 1)
@@ -115,29 +98,27 @@ class MorletWave(object):
 
         return np.trapz(self.free_response[:npoints] * kernel, dx=1/self.fs) # eq (15)
 
-
-    def find_natural_frequency(self, w, n):
+    def find_natural_frequency(self, w, n, k):
         """
         Finds local maximum of the Morlet integral at `w` and `n`
 
         :param w: circular frequency (rad/s)
-        :param k: number of oscillations for the damping identification
         :param n: time-spread parameter
-
+        :param k: number of oscillations for the damping identification
         :return:
         """
-        delta = w * n / (2 * self.k)
+        delta = w * n / (2 * k)
         lwr = w - 0.5 * delta
         upr = lwr + delta
 
         def func(w, n):
-            return -np.abs(self.morlet_integrate(w=w, n=n))
+            return -np.abs(self.morlet_integrate(w=w, n=n, k=k))
 
         mnm = minimize_scalar(func, bounds=(lwr, upr), args=(n), \
                         method='bounded', options={'maxiter': 40, 'disp': 0})
         return mnm.x
     
-    def frequency_correction(self, n, d):
+    def frequency_correction(self, damping_ratio, n, k):
         """
         Calculates frequency correction [1]_ caused by the wavelet transform `n`, `k` and
         the damping `d`. Identified frequency needs to be corrected using the returned
@@ -148,50 +129,108 @@ class MorletWave(object):
         and Vibration, 262 (2003) 291-307, _doi: 10.1016/S0022-460X(02)01032-5.
         .. _doi: https://doi.org/10.1016/S0022-460X(02)01032-5.
 
+        :param damping_ratio: damping ratio
         :param n: time-spread parameter
-        :param d: damping ratio
+        :param k: number of oscillations for the damping identification
         """
-        correction = (np.pi*self.k/n**2) * (-8*self.k*np.pi + (n**2 * d)/np.sqrt(1 - d**2) \
-                        + np.sqrt((-n**4*d**2 \
-                            + 64*self.k**2*np.pi**2 * (-1 + d**2) \
-                            + 16*n**2 * (-1 + 2*d**2 + self.k*np.pi*d*np.sqrt(1 - d**2))) \
-                            / (-1 + d**2)))
+        correction = (np.pi*k/n**2) * (-8*k*np.pi + (n**2 * damping_ratio)/np.sqrt(1 - damping_ratio**2) \
+                        + np.sqrt((-n**4*damping_ratio**2 \
+                            + 64*k**2*np.pi**2 * (-1 + damping_ratio**2) \
+                            + 16*n**2 * (-1 + 2*damping_ratio**2 + k*np.pi*damping_ratio*np.sqrt(1 - damping_ratio**2))) \
+                            / (-1 + damping_ratio**2)))
         return correction**-1
 
-    def exact_mwdi(self, d, M_numerical=0):
+    def exact_mwdi_goal_function(self, damping_ratio, M_numerical, n_1, n_2, k):
         """
-        Calculates the difference between analitically expressed ratio of absolute value
+        The goal function of the exact approach 
+
+        This is the implementation of Eq 19 in the [1] and identifies the difference
+        between analitically expressed ratio of absolute value
         of two wavelet coefficients expressed with: `d`, `k`, `n_1`, `n_2` and
         numerically calculated ratio `M_numerical`, which is obtained by integrating
         a free response of mechanical system with the Morlet wave function using the
         same parameters: `k`, `n_1` and `n_2` as used for calculation of analytical
         ratio.
 
-        :param d: damping ratio
+        :param damping_ratio: damping ratio
         :param M_numerical: numerical ratio of abs valued of two wavelet coefficients
+        :param n_1: time-spread parameter of nominators wavelet coeff.
+        :param n_2: time-spread parameter of denominators wavelet coeff.
+        :param k: number of oscillations for the damping identification
         :return: M_analytical - M_numerical
         """
-        const = 2 * self.k * np.pi * d / np.sqrt(1 - d**2)
-        n = np.array([self.n_1, self.n_2])
+        const = 2 * k * np.pi * damping_ratio / np.sqrt(1 - damping_ratio**2)
+        n = np.array([n_1, n_2])
         g_1 = 0.25 * n
         g_2 = const / n
         err = erf(g_1[0] - g_2[0]) + erf(g_1[0] + g_2[0])
         err /=erf(g_1[1] - g_2[1]) + erf(g_1[1] + g_2[1])
         g_2 /= n
-        M_analytical = np.sqrt(self.n_2 / self.n_1) \
-                     * np.exp(g_2[0] * g_2[1] * (self.n_2**2 - self.n_1**2)) * err
+        M_analytical = np.sqrt(n_2 / n_1) \
+                     * np.exp(g_2[0] * g_2[1] * (n_2**2 - n_1**2)) * err
         return M_analytical - M_numerical
 
+    def exact_mwdi(self, M_numerical, n_1, n_2, k, damping_ratio_init='auto', root_finding='Newton'):
+        """
+        The exact approach by using the root finding algorithm
+
+        Using the Eq (19) [1] and based on `k`, `n_1`, `n_2` it finds the damping_ratio
+        which results in `M_numerical`=`M_analytical`
+
+        :param M_numerical: numerical ratio of abs valued of two wavelet coefficients
+        :param n_1: time-spread parameter of nominators wavelet coeff.
+        :param n_2: time-spread parameter of denominators wavelet coeff.
+        :param k: number of oscillations for the damping identification        
+        :param damping_ratio_init: initial search value, if 'auto', the closed_form solution is used
+        :param root_finding: root finding algorithm to use: `Newton`, `Ridder`
+        :return: damping_ratio
+        """
+        if damping_ratio_init=='auto':
+            damping_ratio_init = self.closed_form_mwdi(M_numerical=M_numerical, n_1=n_1, n_2=n_2, k=k)
+        
+        if root_finding=='Newton':
+            damping_ratio, r = newton(self.exact_mwdi_goal_function, x0=damping_ratio_init, args=(M_numerical,n_1,n_2,k),\
+                                    full_output=True)
+        elif root_finding=='Ridder':
+            x0 = (0, 10*damping_ratio_init)
+            damping_ratio, r = ridder(self.exact_mwdi_goal_function, a=x0[0], b=x0[1], args=(M_numerical,n_1,n_2,k), \
+                                    full_output=True, disp=False)
+            raise Exception('Maximum iterations limit reached!')
+
+        return damping_ratio
+
+
+    def closed_form_mwdi(self, M_numerical, n_1, n_2, k):
+        """
+        The closed-form approach by using the root finding algorithm
+
+        Using the Eq (20) [1] and based on `k`, `n_1`, `n_2` it finds the damping_ratio
+        which results in `M_numerical`=`M_analytical`
+
+        :param M_numerical: numerical ratio of abs valued of two wavelet coefficients
+        :param n_1: time-spread parameter of nominators wavelet coeff.
+        :param n_2: time-spread parameter of denominators wavelet coeff.
+        :param k: number of oscillations for the damping identification        
+        :return: damping_ratio
+        """
+        damping_ratio = n_1 * n_2 / 2 / np.pi \
+                        / np.sqrt(k * k * (n_2 * n_2 - n_1 * n_1)) \
+                        * np.sqrt(np.log(np.sqrt(n_1 / n_2) * M_numerical))
+        return damping_ratio
+
+
 if __name__ == "__main__":
-    fs1 = 100
-    t1 = np.arange(0, 6, 1. / fs1)
-    w1 = 2 * np.pi * 10
-    sig1 = np.cos(w1 * t1) * np.exp(-0.02 * w1 * t1)
-    k1 = 40
+    fs = 100
+    t = np.arange(0, 6, 1. / fs)
+    w = 2 * np.pi * 10
+    damping_ratio = 0.02
+    free_response = np.cos(w*t+0.33) * np.exp(-damping_ratio*w*t)
+    k = 40
 
 #    Close form
-    identifier = MorletWave(sig1, fs1, k1, 10, 20, 'close')
-    print(identifier.identify_damping(w1))
+    identifier = MorletWave(free_response=free_response, fs=fs)
+    print(f'damping_ratio={damping_ratio:5.4f}, identified={identifier.identify_damping(w=w):5.4f}')
 #    Exact
-    identifier = MorletWave(sig1, fs1, k1, 5, 10)
-    print(identifier.identify_damping(w1))
+    identifier = MorletWave(free_response=free_response, fs=fs)
+    print(f'damping_ratio={damping_ratio:5.4f}, identified={identifier.identify_damping(w, n_1=5, n_2=10, k=k, root_finding="Newton"):5.4f}')
+
