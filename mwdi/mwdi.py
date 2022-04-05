@@ -21,15 +21,17 @@ Created on Wed 09 Feb 2022 06:45:45 PM CET
 ..meta::
     :keywords: damping, morlet-wave, identification
 """
+
 import numpy as np
 from scipy.optimize import ridder
 from scipy.optimize import newton
 from scipy.optimize import minimize_scalar
 from scipy.special import erf
+from warnings import warn
 
 class MorletWave(object):
     
-    def __init__(self, free_response, fs, k=30, n_1=5, n_2=10):
+    def __init__(self, free_response, fs):
         """
         Initiates the MorletWave object
 
@@ -69,7 +71,10 @@ class MorletWave(object):
             damping_ratio = self.exact_mwdi(M_numerical=M, n_1=n_1, n_2=n_2, k=k, 
                             root_finding=root_finding, damping_ratio_init=damping_ratio_init)
 
-        if k <= n_1**2/(8*np.pi*damping_ratio):
+        if self.theoretical_codition(k, n_1, damping_ratio):
+            k_chk, _ = self.check_k_parameter(damping_ratio, n_1, False)
+            if k < k_chk and self.theoretical_codition(k_chk, n_1, damping_ratio):
+                warn(f'Low k({k}) value used, try with {k_chk} or {self.check_k_parameter(damping_ratio)}.', Warning)
             return damping_ratio
         else:
             raise Exception(f'Parameter `k` should be below {n_1**2/(8*np.pi*damping_ratio)}, see Eq. (21) in [1].')
@@ -86,7 +91,7 @@ class MorletWave(object):
         s = eta / w
         T = 2 * k * np.pi / w # eq (12)
         if T > (self.free_response.size / self.fs):
-            raise ValueError("Signal is too short, %d points are needed." % int(T * self.fs) + 1)
+            raise ValueError(f'Signal is too short, {int(T * self.fs) + 1} points are needed.')
         npoints = int(T * self.fs) + 1
         t = np.arange(npoints) / self.fs
         # From now on `t` is `t - T/2`
@@ -138,6 +143,35 @@ class MorletWave(object):
                             / (-1 + damping_ratio**2)))
         return correction**-1
 
+    def check_k_parameter(self, damping_ratio, n=0, simple=True):
+        """
+        Function calculates `k` value for which frequency correction is negligable.
+        The expression for frequency correction is analyticaly solved for `k` value
+        where correction factor is equal to 1.
+
+        :param damping_ratio: damping ratio
+        :param n: time-spread parameter
+        :param simple: True is used for simplified solution for low damping ratio
+        """
+        
+        if simple:
+            return int(1 / (np.pi*damping_ratio))
+        k_lo = ((n**2 - n * np.sqrt(n**2 - 16)) * np.sqrt(1 - damping_ratio**2)) \
+             / (16 * np.pi * damping_ratio)
+        k_hi = ((n**2 + n * np.sqrt(n**2 - 16)) * np.sqrt(1 - damping_ratio**2)) \
+             / (16 * np.pi * damping_ratio)
+        return int(k_lo), int(k_hi)
+
+    def theoretical_codition(self, k, n_1, damping_ratio):
+        """
+        Checks if the theoretical condition defined with Eq. (21) in [1] is satisfied.
+
+        :param k: number of oscillations for the damping identification
+        :param n_1: time-spread parameter
+        :param damping_ratio: damping ratio
+        """
+        return k <= n_1**2/(8*np.pi*damping_ratio)
+
     def exact_mwdi_goal_function(self, damping_ratio, M_numerical, n_1, n_2, k):
         """
         The goal function of the exact approach 
@@ -185,15 +219,16 @@ class MorletWave(object):
         """
         if damping_ratio_init=='auto':
             damping_ratio_init = self.closed_form_mwdi(M_numerical=M_numerical, n_1=n_1, n_2=n_2, k=k)
+            if np.isnan(damping_ratio_init):
+                damping_ratio_init = 2e-3
         
         if root_finding=='Newton':
-            damping_ratio, r = newton(self.exact_mwdi_goal_function, x0=damping_ratio_init, \
+            damping_ratio, _ = newton(self.exact_mwdi_goal_function, x0=damping_ratio_init, \
                                         args=(M_numerical, n_1, n_2, k), full_output=True)
         elif root_finding=='Ridder':
             x0 = (0, 10*damping_ratio_init)
-            damping_ratio, r = ridder(self.exact_mwdi_goal_function, a=x0[0], b=x0[1], \
+            damping_ratio, _ = ridder(self.exact_mwdi_goal_function, a=x0[0], b=x0[1], \
                                         args=(M_numerical, n_1, n_2, k), full_output=True, disp=False)
-            raise Exception('Maximum iterations limit reached!')
 
         return damping_ratio
 
@@ -215,6 +250,7 @@ class MorletWave(object):
                         / np.sqrt(k * k * (n_2 * n_2 - n_1 * n_1)) \
                         * np.sqrt(np.log(np.sqrt(n_1 / n_2) * M_numerical))
         return damping_ratio
+
 
 
 if __name__ == "__main__":

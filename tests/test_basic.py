@@ -95,13 +95,13 @@ def test_multi_sine(fs=5000, n=5000):
     amplitude = [1, .5, 0.2, 0.1]
 
     signal = np.zeros(n)
-    for f_, d_, p_, a_ in zip(fr, damping_ratio,phase,amplitude):
+    for f_, d_, p_, a_ in zip(fr, damping_ratio, phase, amplitude):
         signal += get_free_response(fs=fs, n=n, fr=f_, damping_ratio=d_, phase=p_, amplitude=a_)
 
-    n_1 = 7
-    n_2 = 12
+    # n_1 = 7
+    # n_2 = 12
     k = [20, 30, 40, 80]
-    identifier = mwdi.MorletWave(free_response=signal, fs=fs, n_1=n_1, n_2=n_2)
+    identifier = mwdi.MorletWave(free_response=signal, fs=fs)
 
     for fr_, d_, k_ in zip(fr, damping_ratio, k):
         w_d = 2*np.pi*fr_
