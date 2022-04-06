@@ -9,7 +9,7 @@ MSCA IF project `NOSTRADAMUS`_.
 Simple example
 ---------------
 
-A simple example on how to generate random signals on PSD basis:
+A simple example how to identify damping using MWDI method:
 
 .. code-block:: python
 
@@ -29,10 +29,10 @@ A simple example on how to generate random signals on PSD basis:
    response = x * np.exp(-d * w_n * time) * np.cos(w_n * np.sqrt(1 - d**2) * time - phi)
 
    # set MWDI object identifier
-   identifier = mw.MorletWave(free_response=response, fs=fs, k=40)
+   identifier = mw.MorletWave(free_response=response, fs=fs)
 
    # identify damping
-   dmp = identifier.identify_damping(w=w_n)
+   dmp = identifier.identify_damping(w=w_n, root_finding='Newton')
    print(dmp)
 
 References

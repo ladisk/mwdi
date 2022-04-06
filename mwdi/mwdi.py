@@ -71,21 +71,23 @@ class MorletWave(object):
             damping_ratio = self.exact_mwdi(M_numerical=M, n_1=n_1, n_2=n_2, k=k, 
                             root_finding=root_finding, damping_ratio_init=damping_ratio_init)
 
-        if self.theoretical_codition(k, n_1, damping_ratio):
-            k_chk, _ = self.check_k_parameter(damping_ratio, n_1, False)
-            if k < k_chk and self.theoretical_codition(k_chk, n_1, damping_ratio):
-                warn(f'Low k({k}) value used, try with {k_chk} or {self.check_k_parameter(damping_ratio)}.', Warning)
+        if self.theoretical_codition_satisfied(k, n_1, damping_ratio):
+            k_chk = self.check_k_parameter(damping_ratio, n_1, False)
+            if k < k_chk[0] and self.theoretical_codition_satisfied(k_chk[0], n_1, damping_ratio):
+                warn(f'Low k({k}) value used, possible options: {k_chk} or {self.check_k_parameter(damping_ratio)}.', Warning)
             return damping_ratio
         else:
             raise Exception(f'Parameter `k` should be below {n_1**2/(8*np.pi*damping_ratio)}, see Eq. (21) in [1].')
 
     def morlet_integrate(self, w, n, k):
         """
-        Integration with a Morlet wave at circular freq `w` and time-spread parameter `n`. 
+        Integration with a Morlet wave at circular freq `w`, time-spread parameter `n`and
+        nuber of oscilation `k`. 
         
-        :param n: time-spread parameter
         :param w: circular frequency (rad/s)
-        :return:
+        :param n: time-spread parameter
+        :param k: number of MW's oscillations
+        :return: a wavelet coefficient
         """
         eta = 2 * np.sqrt(2) * np.pi * k / n # eq (14)
         s = eta / w
@@ -103,7 +105,7 @@ class MorletWave(object):
 
     def find_natural_frequency(self, w, n, k):
         """
-        Finds local maximum of the Morlet integral at `w` and `n`
+        Finds local maximum of the Morlet integral at `w`, `n` and `k`.
 
         :param w: circular frequency (rad/s)
         :param n: time-spread parameter
@@ -152,17 +154,18 @@ class MorletWave(object):
         :param damping_ratio: damping ratio
         :param n: time-spread parameter
         :param simple: True is used for simplified solution for low damping ratio
-        """
-        
+        """   
         if simple:
             return int(1 / (np.pi*damping_ratio))
+
         k_lo = ((n**2 - n * np.sqrt(n**2 - 16)) * np.sqrt(1 - damping_ratio**2)) \
              / (16 * np.pi * damping_ratio)
         k_hi = ((n**2 + n * np.sqrt(n**2 - 16)) * np.sqrt(1 - damping_ratio**2)) \
              / (16 * np.pi * damping_ratio)
+
         return int(k_lo), int(k_hi)
 
-    def theoretical_codition(self, k, n_1, damping_ratio):
+    def theoretical_codition_satisfied(self, k, n_1, damping_ratio):
         """
         Checks if the theoretical condition defined with Eq. (21) in [1] is satisfied.
 
@@ -199,7 +202,8 @@ class MorletWave(object):
         err /=erf(g_1[1] - g_2[1]) + erf(g_1[1] + g_2[1])
         g_2 /= n
         M_analytical = np.sqrt(n_2 / n_1) \
-                     * np.exp(g_2[0] * g_2[1] * (n_2**2 - n_1**2)) * err
+                     * np.exp(g_2[0] * g_2[1] * (n_2**2 - n_1**2)) \
+                     * err
         return M_analytical - M_numerical
 
     def exact_mwdi(self, M_numerical, n_1, n_2, k, damping_ratio_init='auto', root_finding='Newton'):
@@ -218,8 +222,9 @@ class MorletWave(object):
         :return: damping_ratio
         """
         if damping_ratio_init=='auto':
-            damping_ratio_init = self.closed_form_mwdi(M_numerical=M_numerical, n_1=n_1, n_2=n_2, k=k)
-            if np.isnan(damping_ratio_init):
+            try:
+                damping_ratio_init = self.closed_form_mwdi(M_numerical=M_numerical, n_1=n_1, n_2=n_2, k=k)
+            except Exception:
                 damping_ratio_init = 2e-3
         
         if root_finding=='Newton':
@@ -231,7 +236,6 @@ class MorletWave(object):
                                         args=(M_numerical, n_1, n_2, k), full_output=True, disp=False)
 
         return damping_ratio
-
 
     def closed_form_mwdi(self, M_numerical, n_1, n_2, k):
         """
@@ -246,12 +250,13 @@ class MorletWave(object):
         :param k: number of oscillations for the damping identification        
         :return: damping_ratio
         """
+        const = np.sqrt(n_1 / n_2) * M_numerical
+        if const < 1:
+            raise Exception('Invalid set of parameters, try increasing `k` value or reduce `n_1/n_2`.')
         damping_ratio = n_1 * n_2 / 2 / np.pi \
                         / np.sqrt(k * k * (n_2 * n_2 - n_1 * n_1)) \
-                        * np.sqrt(np.log(np.sqrt(n_1 / n_2) * M_numerical))
+                        * np.sqrt(np.log(const))
         return damping_ratio
-
-
 
 if __name__ == "__main__":
     fs = 100
