@@ -45,8 +45,9 @@ References
 .. _10.1016/j.ymssp.2011.01.008: https://doi.org/10.1016/j.ymssp.2011.01.008
 .. _10.1016/j.ymssp.2021.108485: https://doi.org/10.1016/j.ymssp.2021.108485
 
-.. |Build Status|
+|Build Status|
 
 .. |Build Status| image:: https://travis-ci.com/ladisk/mwdi.svg?branch=main
    :target: https://travis-ci.com/ladisk/mwdi
    
+
