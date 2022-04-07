@@ -42,7 +42,7 @@ class MorletWave(object):
         self.free_response = free_response
         self.fs = fs
 
-    def identify_damping(self, w, n_1=7, n_2=12, k=30, find_exact_freq=True,
+    def identify_damping(self, w, n_1=8, n_2=12, k=30, find_exact_freq=True,
                          root_finding='closed-form', damping_ratio_init='auto'):
         """
         Identify damping at circular frequency `w` (rad/s)
@@ -71,10 +71,10 @@ class MorletWave(object):
             damping_ratio = self.exact_mwdi(M_numerical=M, n_1=n_1, n_2=n_2, k=k, 
                             root_finding=root_finding, damping_ratio_init=damping_ratio_init)
 
-        if self.theoretical_codition_satisfied(k, n_1, damping_ratio):
-            k_chk = self.check_k_parameter(damping_ratio, n_1, False)
-            if k < k_chk[0] and self.theoretical_codition_satisfied(k_chk[0], n_1, damping_ratio):
-                warn(f'Low k({k}) value used, possible options: {k_chk} or {self.check_k_parameter(damping_ratio)}.', Warning)
+        if self.theoretical_condition_satisfied(k, n_1, damping_ratio):
+            k_suggested = self.get_k_suggestion(damping_ratio, n_1)
+            if k < k_suggested[0] and self.theoretical_condition_satisfied(k_suggested[0], n_1, damping_ratio):
+                warn(f'Low k({k}) value used, possible options: {k_suggested} or {self.get_k_suggestion(damping_ratio)}.', Warning)
             return damping_ratio
         else:
             raise Exception(f'Parameter `k` should be below {n_1**2/(8*np.pi*damping_ratio)}, see Eq. (21) in [1].')
@@ -145,17 +145,20 @@ class MorletWave(object):
                             / (-1 + damping_ratio**2)))
         return correction**-1
 
-    def check_k_parameter(self, damping_ratio, n=0, simple=True):
+    def get_k_suggestion(self, damping_ratio, n=None):
         """
+        Get `k` where frequency correction is not required
+
         Function calculates `k` value for which frequency correction is negligable.
         The expression for frequency correction is analyticaly solved for `k` value
         where correction factor is equal to 1.
 
         :param damping_ratio: damping ratio
-        :param n: time-spread parameter
-        :param simple: True is used for simplified solution for low damping ratio
+        :param n: time-spread parameter; if not given the simplified solution for
+                low damping ratio is used
+        :return: returns tuple (k_1, k_2) where `k_i` is the suggested `k`.
         """   
-        if simple:
+        if not n:
             return int(1 / (np.pi*damping_ratio))
 
         k_lo = ((n**2 - n * np.sqrt(n**2 - 16)) * np.sqrt(1 - damping_ratio**2)) \
@@ -165,7 +168,7 @@ class MorletWave(object):
 
         return int(k_lo), int(k_hi)
 
-    def theoretical_codition_satisfied(self, k, n_1, damping_ratio):
+    def theoretical_condition_satisfied(self, k, n_1, damping_ratio):
         """
         Checks if the theoretical condition defined with Eq. (21) in [1] is satisfied.
 
@@ -252,7 +255,7 @@ class MorletWave(object):
         """
         const = np.sqrt(n_1 / n_2) * M_numerical
         if const < 1:
-            raise Exception('Invalid set of parameters, try increasing `k` value or reduce `n_1/n_2`.')
+            raise Exception('Invalid set of parameters, try increasing `k` value or increase `n_1/n_2`.')
         damping_ratio = n_1 * n_2 / 2 / np.pi \
                         / np.sqrt(k * k * (n_2 * n_2 - n_1 * n_1)) \
                         * np.sqrt(np.log(const))
