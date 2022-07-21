@@ -61,7 +61,7 @@ class MorletWave(object):
         if n_1>n_2:
             raise Exception('`n_1` should be smaller than `n_2`.')
         if find_exact_freq:
-            w = self.find_natural_frequency(w=w, n=n_1, k=k)
+            w = self.find_natural_frequency(omega=w, n=n_1, k=k)
 
         M = np.abs(self.morlet_integrate(w, n=n_1, k=k)) \
           / np.abs(self.morlet_integrate(w, n=n_2, k=k))
@@ -79,45 +79,58 @@ class MorletWave(object):
         else:
             raise Exception(f'Parameter `k` should be below {n_1**2/(8*np.pi*damping_ratio)}, see Eq. (21) in [1].')
 
-    def morlet_integrate(self, w, n, k):
+    def morlet_integrate(self, omega, n, k):
         """
-        Integration with a Morlet wave at circular freq `w`, time-spread parameter `n`and
-        nuber of oscilation `k`. 
+        Integration with a Morlet wave at circular freq `omega`, time-spread
+        parameter `n` and nuber of oscilation `k`.
         
         :param w: circular frequency (rad/s)
         :param n: time-spread parameter
         :param k: number of MW's oscillations
         :return: a wavelet coefficient
         """
-        eta = 2 * np.sqrt(2) * np.pi * k / n # eq (14)
-        s = eta / w
-        T = 2 * k * np.pi / w # eq (12)
-        if T > (self.free_response.size / self.fs):
-            raise ValueError(f'Signal is too short, {int(T * self.fs) + 1} points are needed.')
-        npoints = int(T * self.fs) + 1
-        t = np.arange(npoints) / self.fs
-        # From now on `t` is `t - T/2`
-        t -= 0.5 * T
-        t /= s
-        kernel = np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 - 1j*eta*t) # conjugated MW
+
+        kernel = np.conj(self.morlet_wave(omega, n, k))
+        npoints = kernel.size
 
         return np.trapz(self.free_response[:npoints] * kernel, dx=1/self.fs) # eq (15)
 
-    def find_natural_frequency(self, w, n, k):
+    def morlet_wave(self, omega, n, k):
+        """
+        Function generates Morlet-Wave basic wavelet function on the circular 
+        frequency `omega` with `k` cycles and `n` time spread.
+        
+        :param omega: circular frequency (rad/s)
+        :param n: time-spread parameter
+        :param k: number of oscillations
+        :return:
+        """
+        eta = 2 * k * np.pi * np.sqrt(2) / n
+        s = eta / omega
+        T = 2 * k * np.pi / omega
+        N = int(self.fs * T) + 1
+        
+        t = np.arange(N) / self.fs
+        t -= 0.5 * T
+        t /= s
+    
+        return np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 + 1j*eta*t)
+
+    def find_natural_frequency(self, omega, n, k):
         """
         Finds local maximum of the Morlet integral at `w`, `n` and `k`.
 
-        :param w: circular frequency (rad/s)
+        :param omega: circular frequency (rad/s)
         :param n: time-spread parameter
         :param k: number of oscillations for the damping identification
         :return:
         """
-        delta = w * n / (2 * k)
-        lwr = w - 0.5 * delta
+        delta = omega * n / (2 * k)
+        lwr = omega - 0.5 * delta
         upr = lwr + delta
 
-        def func(w, n, k):
-            return -np.abs(self.morlet_integrate(w=w, n=n, k=k))
+        def func(omega, n, k):
+            return -np.abs(self.morlet_integrate(omega=omega, n=n, k=k))
 
         mnm = minimize_scalar(func, bounds=(lwr, upr), args=(n, k), \
                         method='bounded', options={'maxiter': 40, 'disp': 0})
@@ -198,14 +211,16 @@ class MorletWave(object):
         :return: M_analytical - M_numerical
         """
         const = 2 * k * np.pi * damping_ratio / np.sqrt(1 - damping_ratio**2)
-        n = np.array([n_1, n_2])
+        n = np.array([n_1, n_2], dtype=object)
         g_1 = 0.25 * n
-        g_2 = const / n
-        err = erf(g_1[0] - g_2[0]) + erf(g_1[0] + g_2[0])
-        err /=erf(g_1[1] - g_2[1]) + erf(g_1[1] + g_2[1])
-        g_2 /= n
+        g_2_0 = const / n[0]
+        g_2_1 = const / n[1]
+        err = erf(g_1[0] - g_2_0) + erf(g_1[0] + g_2_0)
+        err /=erf(g_1[1] - g_2_1) + erf(g_1[1] + g_2_1)
+        g_2_0 /= n[0]
+        g_2_1 /= n[1]
         M_analytical = np.sqrt(n_2 / n_1) \
-                     * np.exp(g_2[0] * g_2[1] * (n_2**2 - n_1**2)) \
+                     * np.exp(g_2_0 * g_2_1 * (n_2**2 - n_1**2)) \
                      * err
         return M_analytical - M_numerical
 
@@ -265,9 +280,9 @@ if __name__ == "__main__":
     fs = 100
     t = np.arange(0, 6, 1. / fs)
     w = 2 * np.pi * 10
-    damping_ratio = 0.02
+    damping_ratio = 0.01
     free_response = np.cos(w*t+0.33) * np.exp(-damping_ratio*w*t)
-    k = 40
+    k = 50
 
 #    Close form
     identifier = MorletWave(free_response=free_response, fs=fs)
