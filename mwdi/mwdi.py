@@ -12,7 +12,7 @@ _doi: 10.1016/j.ymssp.2011.01.008.
 Check web page of EU project `NOSTRADAMUS`_ for more info.
 .. _NOSTRADAMUS: http://ladisk.si/?what=incfl&flnm=nostradamus.php
 
-This code is based on the `MorletDamping`_ code developped by WANG Longqi.
+This code is based on the `MorletDamping`_ code developed by WANG Longqi.
 .. _MorletDamping: https://github.com/wanglongqi/MorletDamping
 
 Created on Wed 09 Feb 2022 06:45:45 PM CET
@@ -35,7 +35,7 @@ class MorletWave(object):
         """
         Initiates the MorletWave object
 
-        :param free_response: analysed signal
+        :param free_response: analyses signal
         :param fs:  frequency of sampling
         :return:
         """
@@ -82,7 +82,7 @@ class MorletWave(object):
     def morlet_integrate(self, omega, n, k):
         """
         Integration with a Morlet wave at circular freq `omega`, time-spread
-        parameter `n` and nuber of oscilation `k`.
+        parameter `n` and number of oscillation `k`.
         
         :param w: circular frequency (rad/s)
         :param n: time-spread parameter
@@ -125,9 +125,9 @@ class MorletWave(object):
         :param k: number of oscillations for the damping identification
         :return:
         """
-        delta = omega * n / (2 * k)
-        lwr = omega - 0.5 * delta
-        upr = lwr + delta
+        delta = omega * n / (4 * k * np.pi)
+        lwr = omega - delta
+        upr = lwr + 2*delta
 
         def func(omega, n, k):
             return -np.abs(self.morlet_integrate(omega=omega, n=n, k=k))
@@ -162,8 +162,8 @@ class MorletWave(object):
         """
         Get `k` where frequency correction is not required
 
-        Function calculates `k` value for which frequency correction is negligable.
-        The expression for frequency correction is analyticaly solved for `k` value
+        Function calculates `k` value for which frequency correction is negligible.
+        The expression for frequency correction is analytically solved for `k` value
         where correction factor is equal to 1.
 
         :param damping_ratio: damping ratio
@@ -196,7 +196,7 @@ class MorletWave(object):
         The goal function of the exact approach 
 
         This is the implementation of Eq 19 in the [1] and identifies the difference
-        between analitically expressed ratio of absolute value
+        between analytically expressed ratio of absolute value
         of two wavelet coefficients expressed with: `d`, `k`, `n_1`, `n_2` and
         numerically calculated ratio `M_numerical`, which is obtained by integrating
         a free response of mechanical system with the Morlet wave function using the
