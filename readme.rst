@@ -50,4 +50,5 @@ References
 .. |Build Status| image:: https://travis-ci.com/ladisk/mwdi.svg?branch=main
    :target: https://travis-ci.com/ladisk/mwdi
    
-
+.. image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7002813.svg
+   :target: https://doi.org/10.5281/zenodo.7002813
