@@ -125,7 +125,8 @@ class MorletWave(object):
         :param k: number of oscillations for the damping identification
         :return:
         """
-        delta = omega * n / (4 * k * np.pi)
+        # delta = omega * n / (4 * k * np.pi)
+        delta = frequency_spread_mw(omega, n, k)
         lwr = omega - delta
         upr = lwr + 2*delta
 
@@ -275,6 +276,17 @@ class MorletWave(object):
                         / np.sqrt(k * k * (n_2 * n_2 - n_1 * n_1)) \
                         * np.sqrt(np.log(const))
         return damping_ratio
+
+def frequency_spread_mw(omega, n, k):
+    """
+    Frequency spread of the Morlet-wave function, Eq.(12).
+
+    :param omega: circular frequency
+    :param n: time spread parameter
+    :param k: number of oscillations
+    :return: frequency spread in rad/s
+    """
+    return 0.25 * omega * n / (np.pi * k)
 
 if __name__ == "__main__":
     fs = 100
