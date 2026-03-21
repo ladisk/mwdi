@@ -74,7 +74,8 @@ class MorletWave(object):
         if self.theoretical_condition_satisfied(k, n_1, damping_ratio):
             k_suggested = self.get_k_suggestion(damping_ratio, n_1)
             if k < k_suggested[0] and self.theoretical_condition_satisfied(k_suggested[0], n_1, damping_ratio):
-                warn(f'Low k({k}) value used, possible options: {k_suggested} or {self.get_k_suggestion(damping_ratio)}.', Warning)
+                warn(f'Low k({k}) value used, possible options: {k_suggested} or ' \
+                     f'{self.get_k_suggestion(damping_ratio)}.', Warning)
             return damping_ratio
         else:
             raise Exception(f'Parameter `k` should be below {n_1**2/(8*np.pi*damping_ratio)}, see Eq. (21) in [1].')
@@ -93,7 +94,7 @@ class MorletWave(object):
         kernel = np.conj(self.morlet_wave(omega, n, k))
         npoints = kernel.size
 
-        return np.trapz(self.free_response[:npoints] * kernel, dx=1/self.fs) # eq (15)
+        return np.trapezoid(self.free_response[:npoints] * kernel, dx=1/self.fs) # eq (15)
 
     def morlet_wave(self, omega, n, k):
         """
@@ -109,12 +110,14 @@ class MorletWave(object):
         s = eta / omega
         T = 2 * k * np.pi / omega
         N = int(self.fs * T) + 1
-        
+
         t = np.arange(N) / self.fs
         t -= 0.5 * T
         t /= s
-    
-        return np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 + 1j*eta*t)
+
+        mw_fun = np.pi**-0.25 * s**-0.5 * np.exp(-0.5*t**2 + 1j*eta*t)
+
+        return mw_fun
 
     def find_natural_frequency(self, omega, n, k):
         """
@@ -225,7 +228,15 @@ class MorletWave(object):
                      * err
         return M_analytical - M_numerical
 
-    def exact_mwdi(self, M_numerical, n_1, n_2, k, damping_ratio_init='auto', root_finding='Newton'):
+    def exact_mwdi(
+            self,
+            M_numerical,
+            n_1,
+            n_2,
+            k,
+            damping_ratio_init='auto',
+            root_finding='Newton'
+            ):
         """
         The exact approach by using the root finding algorithm
 
@@ -242,19 +253,37 @@ class MorletWave(object):
         """
         if damping_ratio_init=='auto':
             try:
-                damping_ratio_init = self.closed_form_mwdi(M_numerical=M_numerical, n_1=n_1, n_2=n_2, k=k)
+                damping_ratio_init = self.closed_form_mwdi(
+                    M_numerical=M_numerical,
+                    n_1=n_1,
+                    n_2=n_2,
+                    k=k
+                )
             except Exception:
                 damping_ratio_init = 2e-3
-        
-        if root_finding=='Newton':
-            damping_ratio, _ = newton(self.exact_mwdi_goal_function, x0=damping_ratio_init, \
-                                        args=(M_numerical, n_1, n_2, k), full_output=True)
-        elif root_finding=='Ridder':
-            x0 = (0, 10*damping_ratio_init)
-            damping_ratio, _ = ridder(self.exact_mwdi_goal_function, a=x0[0], b=x0[1], \
-                                        args=(M_numerical, n_1, n_2, k), full_output=True, disp=False)
 
-        return damping_ratio
+        if root_finding=='Newton':
+            result, _ = newton(
+                self.exact_mwdi_goal_function,
+                x0=damping_ratio_init,
+                args=(M_numerical, n_1, n_2, k),
+                full_output=True
+            )
+        elif root_finding=='Ridder':
+            a, b = 0.0, 10 * float(damping_ratio_init)
+            result, _ = ridder(
+                self.exact_mwdi_goal_function,
+                a=a,
+                b=b,
+                args=(M_numerical, n_1, n_2, k),
+                full_output=True,
+                disp=False,
+            )
+        else:
+            raise ValueError(f"Unsupported root_finding='{root_finding}'. ' \
+                             'Use 'Newton' or 'Ridder'.")
+
+        return result
 
     def closed_form_mwdi(self, M_numerical, n_1, n_2, k):
         """
@@ -272,10 +301,10 @@ class MorletWave(object):
         const = np.sqrt(n_1 / n_2) * M_numerical
         if const < 1:
             raise Exception('Invalid set of parameters, try increasing `k` value or increase `n_1/n_2`.')
-        damping_ratio = n_1 * n_2 / 2 / np.pi \
+        result = n_1 * n_2 / 2 / np.pi \
                         / np.sqrt(k * k * (n_2 * n_2 - n_1 * n_1)) \
                         * np.sqrt(np.log(const))
-        return damping_ratio
+        return result
 
 def frequency_spread_mw(omega, n, k):
     """
@@ -292,14 +321,16 @@ if __name__ == "__main__":
     fs = 100
     t = np.arange(0, 6, 1. / fs)
     w = 2 * np.pi * 10
-    damping_ratio = 0.01
-    free_response = np.cos(w*t+0.33) * np.exp(-damping_ratio*w*t)
+    damping = 0.01
+    free_response = np.cos(w*t+0.33) * np.exp(-damping*w*t)
     k = 50
 
 #    Close form
     identifier = MorletWave(free_response=free_response, fs=fs)
-    print(f'damping_ratio={damping_ratio:5.4f}, identified={identifier.identify_damping(w=w):5.4f}')
+    print(f'damping_ratio={damping:5.4f}, ' \
+          f'identified={identifier.identify_damping(w=w):5.4f}')
 #    Exact
     identifier = MorletWave(free_response=free_response, fs=fs)
-    print(f'damping_ratio={damping_ratio:5.4f}, identified={identifier.identify_damping(w, n_1=5, n_2=10, k=k, root_finding="Newton"):5.4f}')
-
+    print(f'damping_ratio={damping:5.4f}, ' \
+          f'identified={identifier.identify_damping(w, n_1=5, n_2=10, \
+                                                    k=k, root_finding="Newton"):5.4f}')

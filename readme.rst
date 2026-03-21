@@ -47,8 +47,8 @@ References
 
 |Build Status| |Zenodo|
 
-.. |Build Status| image:: https://travis-ci.com/ladisk/mwdi.svg?branch=main
-   :target: https://travis-ci.com/ladisk/mwdi
+.. |Build Status| image:: https://github.com/ladisk/mwdi/actions/workflows/python-package.yml/badge.svg
+   :target: https://github.com/ladisk/mwdi/actions/workflows/python-package.yml
    
 .. |Zenodo| image:: https://zenodo.org/badge/DOI/10.5281/zenodo.7002813.svg
    :target: https://doi.org/10.5281/zenodo.7002813
