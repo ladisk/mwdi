@@ -327,10 +327,16 @@ if __name__ == "__main__":
 
 #    Close form
     identifier = MorletWave(free_response=free_response, fs=fs)
-    print(f'damping_ratio={damping:5.4f}, ' \
-          f'identified={identifier.identify_damping(w=w):5.4f}')
+    damp_identified = identifier.identify_damping(w=w)
+    print(f'damping_ratio={damping:5.4f}, identified={damp_identified:5.4f}')
+
 #    Exact
     identifier = MorletWave(free_response=free_response, fs=fs)
-    print(f'damping_ratio={damping:5.4f}, ' \
-          f'identified={identifier.identify_damping(w, n_1=5, n_2=10, \
-                                                    k=k, root_finding="Newton"):5.4f}')
+    damp_identified = identifier.identify_damping(
+                        w=w,
+                        n_1=5,
+                        n_2=10,
+                        k=k,
+                        root_finding="Newton"
+                        )
+    print(f'damping_ratio={damping:5.4f}, identified={damp_identified:5.4f}')
