@@ -1,5 +1,6 @@
 numpy>=2.0.0
-scipy
-pylint
+scipy>=1.0.0
+twine
+build
 pytest
 

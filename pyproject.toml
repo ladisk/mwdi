@@ -1,0 +1,53 @@
+[build-system]
+requires = [
+    "hatchling",
+]
+build-backend = "hatchling.build"
+
+[project]
+name = "mwdi"
+version = "0.73"
+license = "MIT"
+description = "Morlet Wave Damping Identification."
+readme = "README.rst"
+keywords = [
+    "damping identification",
+    "morlet-wave",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "numpy>=2.0.0",
+    "scipy>=1.0.0",
+]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Scientific/Engineering",
+    "Programming Language :: Python :: 3.10",
+    "License :: OSI Approved :: MIT License",
+]
+
+[[project.authors]]
+name = "Ivan Tomac, Longqi Wang, Janko Slavič"
+email = "janko.slavic@fs.uni-lj.si"
+
+[[project.maintainers]]
+name = "Ivan Tomac, Janko Slavič"
+email = "janko.slavic@fs.uni-lj.si"
+
+[project.optional-dependencies]
+dev = [
+    "twine",
+    "build",
+    "pytest",
+]
+
+[project.urls]
+homepage = "https://github.com/ladisk/mwdi"
+# documentation = "https://pyidi.readthedocs.io/en/latest/"
+source = "https://github.com/ladisk/mwdi"
+
+[tool.hatch.build.targets.sdist]
+include = [
+    "mwdi/*",
+]
